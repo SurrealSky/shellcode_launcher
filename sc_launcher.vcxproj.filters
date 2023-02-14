@@ -15,8 +15,22 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="sc_launcher.cpp">
+    <ClCompile Include="sc_launcher.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="bypass.c">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="stage.c">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="bypass.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
