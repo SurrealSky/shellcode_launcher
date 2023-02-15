@@ -329,7 +329,7 @@ int main()
 	if (GetPP())
 	{
 		//自身子进程
-		if (RunSCFromPE(&config) < 0) {
+		if (RunSCFromNet(&config) < 0) {
 			return 1;
 		}
 	}
