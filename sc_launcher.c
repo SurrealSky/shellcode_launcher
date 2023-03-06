@@ -402,7 +402,7 @@ int main()
 		return 0;
 	}
 	
-	if (/*GetPP()*/true)
+	if (GetPP())
 	{
 		//自身子进程
 		if (RunSCFromPE(&config) < 0) {
