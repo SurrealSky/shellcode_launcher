@@ -1,3 +1,3 @@
-# SCByPE
- PE文件捆绑器免杀
+# SCByFile
+ PE文件免杀-从本地文件读取shellcode解析执行
 
