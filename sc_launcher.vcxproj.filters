@@ -15,13 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="sc_launcher.c">
+    <ClCompile Include="sc_launcher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="bypass.c">
+    <ClCompile Include="bypass.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
-    <ClCompile Include="stage.c">
+    <ClCompile Include="stage.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
   </ItemGroup>

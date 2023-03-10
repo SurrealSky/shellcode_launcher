@@ -129,9 +129,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="bypass.c" />
-    <ClCompile Include="sc_launcher.c" />
-    <ClCompile Include="stage.c" />
+    <ClCompile Include="bypass.cpp" />
+    <ClCompile Include="sc_launcher.cpp" />
+    <ClCompile Include="stage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bypass.h" />

