@@ -235,12 +235,14 @@ int DecryptSC(struct ConfigurationData* config,unsigned char *encData,unsigned i
 	{
 		config->shellcodeSize = *(unsigned int*)(encData + 1 + 16);
 		config->shellcode = (unsigned char*)malloc(config->shellcodeSize);
-		for (int i = 0; i < config->shellcodeSize; i++)
-		{
-			(encData + 1 + 16 + 4)[i] ^= (encData + 1)[i % 0x10];
-		}
 		if (config->shellcode != 0)
+		{
 			memcpy(config->shellcode, encData + 1 + 16 + 4, config->shellcodeSize);
+			for (int i = 0; i < config->shellcodeSize; i++)
+			{
+				config->shellcode[i] ^= (encData + 1)[i % 0x10];
+			}
+		}
 		else
 			return -1;
 	}
