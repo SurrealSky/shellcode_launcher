@@ -57,7 +57,7 @@ bool byCPUID()
 void ForDelay()
 {
 	std::chrono::seconds t = std::chrono::seconds(60);
-	std::this_thread::sleep_for(t);
+	//std::this_thread::sleep_for(t);
 }
 
 
