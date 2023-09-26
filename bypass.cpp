@@ -65,5 +65,5 @@ void ForDelay()
 //ºÏ≤‚…≥œ‰
 bool ForSD()
 {
-	return (byTime() || byCPUID());
+	return (byTime()/* || byCPUID()*/);
 }
