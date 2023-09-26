@@ -31,6 +31,7 @@ bool byTime()
 		return false;
 }
 
+//ÐéÄâ»ú£¬É³Ïä¼ì²â
 bool byCPUID()
 {
 	DWORD dw_ecx;
@@ -56,8 +57,8 @@ bool byCPUID()
 
 void ForDelay()
 {
-	std::chrono::seconds t = std::chrono::seconds(60);
-	//std::this_thread::sleep_for(t);
+	std::chrono::seconds t = std::chrono::seconds(5);
+	std::this_thread::sleep_for(t);
 }
 
 
